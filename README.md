@@ -17,11 +17,11 @@ tatuador y permite seguir el avance de cada obra.
 ## 1. Arquitectura hexagonal
 
 ```
-                 ┌──────────────── infrastructure ────────────────┐
-                 │  adapter/in/web        (REST controllers)       │
+                 ┌──────────────── infrastructure ──────────────────┐
+                 │  adapter/in/web        (REST controllers)        │
    Angular  ───▶ │  adapter/in/programador (tareas @Scheduled)     │
-                 │                                                 │
-                 │      ┌──────────── application ────────────┐    │
+                 │                                                  │
+                 │      ┌──────────── application ────────────┐     │
                  │      │  port/in   (casos de uso F-01..F-08) │    │
                  │      │  service   (implementación)          │    │
                  │      │      ┌────── domain ──────┐          │    │
@@ -86,17 +86,10 @@ cierre del servicio solo con pago completo (RN-07), comprobantes imprimibles.
 - Node.js 20 o superior (incluye npm)
 - Oracle XE 21c / 23ai Free **o** Docker **o** nada (perfil `h2`)
 
-### 3.1 Base de datos Oracle (elige una opción)
+### 3.1 Base de datos Oracle
 
-**A. Oracle instalado localmente** — ejecuta como SYSTEM el script
-`backend/src/main/resources/db/oracle-crear-usuario.sql` sobre la PDB `XEPDB1` (XE 21c).
-La conexión por defecto es `jdbc:oracle:thin:@localhost:1521/XEPDB1`, usuario `HANDGELUS`,
-contraseña `handgelus` (ver `backend/src/main/resources/application.properties`).
-
-**B. Docker** — `docker compose up -d` crea Oracle 23ai Free con el usuario listo. Arranca el
+**Docker** — `docker compose up -d` crea Oracle 23ai Free con el usuario listo. Arranca el
 backend con la variable de entorno `DB_URL=jdbc:oracle:thin:@localhost:1521/FREEPDB1`.
-
-**C. Sin Oracle** — usa el perfil `h2` (base embebida en modo compatible con Oracle).
 
 Las tablas (`HG_USUARIO`, `HG_SOLICITUD`, `HG_COTIZACION`, `HG_PAGO`, `HG_CITA`, `HG_OBRA`,
 `HG_AVANCE`, `HG_COMPROBANTE`, `HG_NOTIFICACION`, `HG_TARIFA`) las crea Hibernate al arrancar.
