@@ -33,9 +33,7 @@ const SIGUIENTE_OBRA: Record<EstadoObra, EstadoObra | null> = {
   template: `
     <a routerLink="/estudio/solicitudes" class="volver pequeno">Volver a la bandeja</a>
 
-    @if (cargando()) {
-      <p class="cargando">Abriendo la solicitud…</p>
-    } @else if (detalle(); as d) {
+    @if (detalle(); as d) {
       <header class="cabeza">
         <div>
           <p class="cursiva suave tipo">{{ d.solicitud.tipoServicio | etiqueta: tipos }} · solicitud #{{ d.solicitud.id }}</p>
@@ -326,6 +324,8 @@ const SIGUIENTE_OBRA: Record<EstadoObra, EstadoObra | null> = {
           }
         </aside>
       </div>
+    } @else if (cargando()) {
+      <p class="cargando">Abriendo la solicitud…</p>
     } @else {
       <p class="aviso aviso-error">{{ error() }}</p>
     }
@@ -417,7 +417,11 @@ export class SolicitudEstudioComponent implements OnInit {
   notasCita = '';
   guiaEnvio = '';
   motivo = '';
-  avance: { titulo: string; descripcion: string; progreso: number | null } = { titulo: '', descripcion: '', progreso: null };
+  avance: { titulo: string; descripcion: string; progreso: number | null } = {
+    titulo: '',
+    descripcion: '',
+    progreso: null
+  };
   readonly minFecha = iso(hoy());
 
   // Etiquetas
@@ -471,7 +475,10 @@ export class SolicitudEstudioComponent implements OnInit {
   private cargar(): void {
     this.api.solicitud(Number(this.id())).subscribe({
       next: d => this.aplicar(d),
-      error: e => { this.error.set(mensajeError(e)); this.cargando.set(false); }
+      error: e => {
+        this.error.set(mensajeError(e));
+        this.cargando.set(false);
+      }
     });
   }
 
@@ -573,7 +580,10 @@ export class SolicitudEstudioComponent implements OnInit {
   citaRealizada(citaId: number): void {
     this.trabajando.set(true);
     this.api.citaRealizada(citaId).subscribe({
-      next: () => { this.avisos.exito('Sesión marcada como realizada.'); this.cargar(); },
+      next: () => {
+        this.avisos.exito('Sesión marcada como realizada.');
+        this.cargar();
+      },
       error: e => this.fallo(e)
     });
   }
@@ -581,7 +591,11 @@ export class SolicitudEstudioComponent implements OnInit {
   cancelarCita(citaId: number): void {
     this.trabajando.set(true);
     this.api.cancelarCita(citaId).subscribe({
-      next: () => { this.avisos.info('Cita cancelada. Se notificó al cliente.'); this.cargar(); this.cargarSugerencias(); },
+      next: () => {
+        this.avisos.info('Cita cancelada. Se notificó al cliente.');
+        this.cargar();
+        this.cargarSugerencias();
+      },
       error: e => this.fallo(e)
     });
   }
@@ -617,12 +631,12 @@ export class SolicitudEstudioComponent implements OnInit {
     }
     this.trabajando.set(true);
     const progreso = this.avance.progreso === null || this.avance.progreso === undefined || (this.avance.progreso as unknown) === ''
-      ? null : Number(this.avance.progreso);
+        ? null : Number(this.avance.progreso);
     this.api.registrarAvance(Number(this.id()), {
       titulo: this.avance.titulo, descripcion: this.avance.descripcion || null, progreso
     }, this.imagenAvance()).subscribe({
       next: d => {
-        this.avance = { titulo: '', descripcion: '', progreso: null };
+        this.avance = {titulo: '', descripcion: '', progreso: null};
         this.imagenAvance.set(null);
         this.aplicar(d, 'Avance registrado. El cliente ya puede verlo.');
       },
@@ -633,7 +647,10 @@ export class SolicitudEstudioComponent implements OnInit {
   archivar(): void {
     this.trabajando.set(true);
     this.api.cancelarSolicitud(Number(this.id()), this.motivo || null).subscribe({
-      next: d => { this.archivando.set(false); this.aplicar(d, 'Solicitud archivada.'); },
+      next: d => {
+        this.archivando.set(false);
+        this.aplicar(d, 'Solicitud archivada.');
+      },
       error: e => this.fallo(e)
     });
   }

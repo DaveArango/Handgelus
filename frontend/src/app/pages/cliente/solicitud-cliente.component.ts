@@ -25,9 +25,7 @@ import { SelloEstadoComponent } from '../../shared/sello-estado.component';
     <section class="contenedor pagina">
       <a routerLink="/mi-espacio" class="volver pequeno">Volver a mis proyectos</a>
 
-      @if (cargando()) {
-        <p class="cargando">Abriendo tu proyecto…</p>
-      } @else if (detalle(); as d) {
+      @if (detalle(); as d) {
         <header class="cabeza">
           <div>
             <p class="cursiva suave tipo">{{ d.solicitud.tipoServicio | etiqueta: tipos }}</p>
@@ -227,6 +225,8 @@ import { SelloEstadoComponent } from '../../shared/sello-estado.component';
             }
           </aside>
         </div>
+      } @else if (cargando()) {
+        <p class="cargando">Abriendo tu proyecto…</p>
       } @else {
         <p class="aviso aviso-error">{{ error() }}</p>
       }
@@ -357,17 +357,17 @@ export class SolicitudClienteComponent implements OnInit {
       case 'RECIBIDA': return 'Recibimos tu solicitud. El artista revisará tu idea y confirmará el valor definitivo.';
       case 'COTIZACION_GENERADA': return 'Tu cotización está lista. Revísala y acéptala para continuar con el pago inicial.';
       case 'COTIZACION_ACEPTADA': return tatuaje
-        ? 'Con el abono del 30 % reservamos la jornada de tu cita.'
-        : 'Con el anticipo del 50 % el artista inicia la producción de tu obra.';
+          ? 'Con el abono del 30 % reservamos la jornada de tu cita.'
+          : 'Con el anticipo del 50 % el artista inicia la producción de tu obra.';
       case 'PAGO_EN_PROCESO': return 'Estamos esperando la confirmación de la pasarela de pago.';
       case 'PAGO_PARCIAL_CONFIRMADO': return tatuaje
-        ? 'Recibimos tu abono. La asistente te contactará para acordar la fecha de tu cita.'
-        : 'Recibimos tu anticipo. Tu obra entrará en producción muy pronto.';
+          ? 'Recibimos tu abono. La asistente te contactará para acordar la fecha de tu cita.'
+          : 'Recibimos tu anticipo. Tu obra entrará en producción muy pronto.';
       case 'CITA_AGENDADA': return 'Tu cita está confirmada. Recuerda llegar con la piel hidratada y descansado.';
       case 'EN_PRODUCCION': return 'El artista está trabajando en tu obra. Aquí verás cada avance.';
       case 'TERMINADA': return d.resumenPago.saldo > 0
-        ? 'Tu obra está terminada. Paga el saldo para coordinar el envío.'
-        : 'Tu obra está terminada y lista para enviarse.';
+          ? 'Tu obra está terminada. Paga el saldo para coordinar el envío.'
+          : 'Tu obra está terminada y lista para enviarse.';
       case 'ENVIADA': return 'Tu obra va en camino. ¡Gracias por confiar en el atelier!';
       case 'SERVICIO_COMPLETADO': return 'Servicio completado. Gracias por llevar una pieza de Handgelus.';
       default: return '';
