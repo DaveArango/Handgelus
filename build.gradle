@@ -1,0 +1,25 @@
+// Proyecto raíz de Handgelus.
+// El backend (Spring Boot) vive en el subproyecto :backend.
+// El frontend (Angular) vive en /frontend y se ejecuta con npm.
+
+allprojects {
+    group = 'com.handgelus'
+    version = '1.0.0'
+}
+
+// Tareas de conveniencia para el frontend (requieren Node.js 20+ instalado)
+def npmCmd = System.getProperty('os.name').toLowerCase().contains('windows') ? 'npm.cmd' : 'npm'
+
+tasks.register('frontendInstall', Exec) {
+    group = 'handgelus'
+    description = 'Instala las dependencias del frontend Angular'
+    workingDir = file('frontend')
+    commandLine npmCmd, 'install'
+}
+
+tasks.register('frontendStart', Exec) {
+    group = 'handgelus'
+    description = 'Levanta el frontend Angular en http://localhost:4200'
+    workingDir = file('frontend')
+    commandLine npmCmd, 'start'
+}

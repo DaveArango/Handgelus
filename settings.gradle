@@ -1,0 +1,3 @@
+rootProject.name = 'handgelus'
+
+include 'backend'

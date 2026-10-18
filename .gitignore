@@ -1,0 +1,27 @@
+# Gradle / Java
+.gradle/
+build/
+backend/build/
+!gradle/wrapper/gradle-wrapper.jar
+*.class
+
+# Datos locales del backend
+backend/uploads/
+backend/data/
+uploads/
+data/
+
+# IntelliJ
+.idea/
+*.iml
+out/
+
+# Angular / Node
+frontend/node_modules/
+frontend/dist/
+frontend/.angular/
+
+# Sistema
+.DS_Store
+Thumbs.db
+*.log
