@@ -8,7 +8,6 @@ import com.handgelus.domain.model.Actor;
 import com.handgelus.domain.model.EstadoPago;
 import com.handgelus.domain.model.MetodoPago;
 import com.handgelus.domain.model.Pago;
-import com.handgelus.infrastructure.adapter.out.pasarela.PasarelaPagoSimuladaAdapter;
 import jakarta.validation.Valid;
 import jakarta.validation.constraints.DecimalMin;
 import jakarta.validation.constraints.NotBlank;
@@ -31,11 +30,9 @@ import java.util.List;
 public class PagoController {
 
     private final PagoUseCase pagos;
-    private final PasarelaPagoSimuladaAdapter pasarelaSimulada;
 
-    public PagoController(PagoUseCase pagos, PasarelaPagoSimuladaAdapter pasarelaSimulada) {
+    public PagoController(PagoUseCase pagos) {
         this.pagos = pagos;
-        this.pasarelaSimulada = pasarelaSimulada;
     }
 
     public record IniciarPagoRequest(@DecimalMin(value = "1", message = "Debe ser mayor a cero") BigDecimal monto,
@@ -76,16 +73,5 @@ public class PagoController {
     public Pago webhook(@RequestHeader(value = "X-Firma-Pasarela", required = false) String firma,
                         @Valid @RequestBody WebhookRequest r) {
         return pagos.procesarRespuestaPasarela(r.referencia(), r.aprobado(), firma);
-    }
-
-    /**
-     * Pantalla de la pasarela simulada: el cliente aprueba o rechaza el cobro y la pasarela
-     * dispara internamente su webhook firmado. Con una pasarela real este endpoint no existe.
-     */
-    @PostMapping("/pasarela-simulada/{referencia}/{resultado}")
-    public Pago pasarelaSimulada(@PathVariable String referencia, @PathVariable String resultado, Actor actor) {
-        pagos.consultarCheckout(referencia, actor);   // valida que el pago pertenezca al usuario
-        return pagos.procesarRespuestaPasarela(referencia, "aprobar".equalsIgnoreCase(resultado),
-                pasarelaSimulada.firmaConfigurada());
     }
 }

@@ -24,7 +24,6 @@ import com.handgelus.domain.model.MetodoPago;
 import com.handgelus.domain.model.Rol;
 import com.handgelus.domain.model.TipoServicio;
 import com.handgelus.domain.model.Usuario;
-import com.handgelus.infrastructure.adapter.out.pasarela.PasarelaPagoSimuladaAdapter;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.boot.CommandLineRunner;
@@ -56,12 +55,12 @@ public class DatosIniciales implements CommandLineRunner {
     private final PagoUseCase pagos;
     private final AgendaUseCase agenda;
     private final AvanceObraUseCase avances;
-    private final PasarelaPagoSimuladaAdapter pasarela;
+    private final String firmaWebhook;
     private final Clock reloj;
 
     public DatosIniciales(UsuarioRepositoryPort usuarios, CifradoPasswordPort cifrado, GestionTarifasUseCase tarifas,
                           SolicitudUseCase solicitudes, CotizacionUseCase cotizaciones, PagoUseCase pagos,
-                          AgendaUseCase agenda, AvanceObraUseCase avances, PasarelaPagoSimuladaAdapter pasarela,
+                          AgendaUseCase agenda, AvanceObraUseCase avances, HandgelusProperties properties,
                           Clock reloj) {
         this.usuarios = usuarios;
         this.cifrado = cifrado;
@@ -71,7 +70,7 @@ public class DatosIniciales implements CommandLineRunner {
         this.pagos = pagos;
         this.agenda = agenda;
         this.avances = avances;
-        this.pasarela = pasarela;
+        this.firmaWebhook = properties.pasarela().firmaWebhook();
         this.reloj = reloj;
     }
 
@@ -111,7 +110,7 @@ public class DatosIniciales implements CommandLineRunner {
                 + "Hidrata la piel la semana previa.", artista);
         cotizaciones.decidir(id1, true, valeria);
         CheckoutVista checkout = pagos.iniciarPago(id1, new BigDecimal("390000"), MetodoPago.TARJETA, valeria);
-        pagos.procesarRespuestaPasarela(checkout.pago().getReferencia(), true, pasarela.firmaConfigurada());
+        pagos.procesarRespuestaPasarela(checkout.pago().getReferencia(), true, firmaWebhook);
         LocalDate fecha = proximaFecha(artista);
         agenda.agendar(new AgendarCitaComando(id1, artista.id(), fecha, primeraJornada(artista, fecha), "Sesión 1: contornos"), asistente);
 
