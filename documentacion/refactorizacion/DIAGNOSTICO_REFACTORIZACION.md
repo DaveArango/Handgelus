@@ -65,8 +65,9 @@ sequenceDiagram
 ### 2.3 Dependencias observadas
 
 - La regla hexagonal se cumple en `domain` y `application`: son Java puro y dependen solo de puertos.
-- **Excepción detectada:** `PagoController`, un adaptador de entrada, depende de la clase concreta
-  `PasarelaPagoSimuladaAdapter`, que es un adaptador de salida (ver H-01).
+- **Excepción detectada:** `PagoController`, un adaptador de entrada, y `DatosIniciales`, de la
+  configuración, dependen de la clase concreta `PasarelaPagoSimuladaAdapter`, que es un adaptador
+  de salida (ver H-01).
 - Cada método público de `application.service..*` corre en una transacción.
   `BeanConfig.transaccionesCasosDeUso`, líneas 86-98, la aplica con `rollback` ante cualquier `Exception`.
 
@@ -74,12 +75,15 @@ sequenceDiagram
 
 ## 3. Hallazgos
 
+> Las líneas citadas corresponden al código antes de la intervención. En cada hallazgo se distingue
+> el **hecho** (verificable en el código) de la **hipótesis** (consecuencia que aún no se ha reproducido).
+
 ### H-01 · Riesgo arquitectónico: el controlador web depende de un adaptador de salida concreto
 
 | Campo | Detalle |
 |---|---|
-| Ubicación | `infrastructure/adapter/in/web/PagoController.java`: import (l. 11), campo `pasarelaSimulada` (l. 34), constructor (l. 36-39), método `pasarelaSimulada` (l. 85-90) |
-| Evidencia | `private final PasarelaPagoSimuladaAdapter pasarelaSimulada;` (l. 34) · `pasarelaSimulada.firmaConfigurada()` (l. 89). `firmaConfigurada()` es un método público que no pertenece al puerto: `PasarelaPagoSimuladaAdapter.java` l. 55-57; `PasarelaPagoPort.java` solo declara `generarReferencia`, `crearSesion` y `firmaValida` |
+| Ubicación | `infrastructure/adapter/in/web/PagoController.java`: import (l. 11), campo `pasarelaSimulada` (l. 34), constructor (l. 36-39), método `pasarelaSimulada` (l. 85-90) · `infrastructure/config/DatosIniciales.java`: import (l. 27), campo `pasarela` (l. 59), constructor (l. 64), llamada `pasarela.firmaConfigurada()` (l. 114) |
+| Evidencia | `private final PasarelaPagoSimuladaAdapter pasarelaSimulada;` (l. 34) · `pasarelaSimulada.firmaConfigurada()` (l. 89). `firmaConfigurada()` es un método público que no pertenece al puerto: `PasarelaPagoSimuladaAdapter.java` l. 55-57; `PasarelaPagoPort.java` solo declara `generarReferencia`, `crearSesion` y `firmaValida`. El mismo acoplamiento aparece en `DatosIniciales` (carga de datos de demostración), detectado al compilar tras el cambio |
 | Observación | **Hecho:** un adaptador de entrada conoce la clase concreta de un adaptador de salida y usa un método fuera del puerto. Así se salta la inversión de dependencias que el resto del proyecto respeta. **Hecho:** la documentación promete lo contrario. `README.md` l. 138-140 dice "Para MercadoPago/PayU basta otra implementación de `PasarelaPagoPort`"; la Javadoc del adaptador (l. 18-19) dice lo mismo. |
 | Criterio | DIP (SOLID) y regla de dependencias de la arquitectura hexagonal (in → port.in, nunca in → out). Además, la implementación no coincide con la arquitectura documentada. |
 | Impacto y riesgo | Si se registra otra implementación de `PasarelaPagoPort` y se retira la simulada, Spring no puede construir `PagoController` porque falta un bean de tipo `PasarelaPagoSimuladaAdapter`. Con eso cae **todo** F-05, no solo la pantalla simulada. **Hipótesis (seguridad):** el endpoint simulado no se puede desactivar; `SecurityConfig.java` l. 68 solo exige `authenticated()`. Si conviviera con una pasarela real, un cliente autenticado podría aprobar su propio pago, porque el endpoint inyecta la firma válida. |
@@ -120,6 +124,7 @@ sequenceDiagram
 | H-04 | Deuda técnica | `PagoService.java` l. 191 · `PasarelaPagoSimuladaAdapter.java` l. 37 | `"HG-MAN-" + System.currentTimeMillis()` y `LocalDate.now()` ignoran el `Clock` inyectado (`BeanConfig` l. 69-72, zona `America/Bogota`). Las referencias dependen del reloj y la zona de la JVM, y no se pueden fijar en pruebas. La referencia es `UNIQUE` (`PagoEntity` l. 49). |
 | H-05 | Oportunidad de mejora | `PagoController.java` l. 76 y l. 86 | Los endpoints devuelven la entidad de dominio `Pago`, incluido `registradoPorId`, como contrato REST. El JSON queda acoplado al modelo de dominio. Cambiarlo afecta al frontend (`frontend/src/app/core/api.service.ts` l. 118). |
 | H-06 | Riesgo | `backend/src/main/resources/application.properties` l. 47 y l. 84 | El secreto JWT y la firma del webhook son literales versionados. En cambio, las credenciales de BD (l. 16-18) sí usan `${DB_…}`. Se propone `${JWT_SECRETO:…}` y `${PASARELA_FIRMA:…}`. Los valores no se reproducen en este informe. |
+| H-08 | Defecto funcional (configuración del repositorio) | `.gitignore` l. 17 | La regla `out/`, pensada para la carpeta de compilación de IntelliJ, también excluye el paquete `infrastructure/adapter/out/`: sus 36 archivos (persistencia, entidades JPA, pasarela, correo, almacenamiento, seguridad) no están versionados. Un clon del repositorio no compila. Se detectó durante la intervención porque `PasarelaPagoSimuladaAdapter.java` no aparecía como modificado en `git status`. Corrección propuesta: reemplazar `out/` por `/out/` y `backend/out/`. |
 | H-07 | Deuda técnica (pruebas) | `backend/src/test/java/…` | Solo existe `FlujoNegocioTest`, con un único `@Test` de 61 verificaciones. No hay pruebas de adaptadores web ni de reglas de arquitectura, y una falla detiene el resto del flujo. |
 
 ---
@@ -131,6 +136,7 @@ Escala de 1 a 3. **Prioridad = Impacto + Riesgo + (4 − Esfuerzo)**: a mayor pu
 | ID | Impacto | Riesgo | Esfuerzo | Prioridad | Decisión |
 |---|:-:|:-:|:-:|:-:|---|
 | **H-01** | 3 | 3 | 1 | **9** | **Intervenir ahora** |
+| H-08 | 3 | 3 | 1 | 9 | Corregir de inmediato como corrección de defecto, separada de la refactorización |
 | H-03 | 3 | 2 | 2 | 7 | Siguiente iteración (es corrección de defecto, no refactorización) |
 | H-06 | 2 | 2 | 1 | 7 | Siguiente iteración (configuración) |
 | H-02 | 2 | 2 | 2 | 6 | Deuda registrada |
@@ -150,8 +156,26 @@ Escala de 1 a 3. **Prioridad = Impacto + Riesgo + (4 − Esfuerzo)**: a mayor pu
 
 ## 5. Intervención
 
-**Cambio:** `refactor` que separa la pasarela simulada en su propio adaptador de entrada y elimina
-la dependencia `adapter.in.web` → `adapter.out.pasarela`.
+**Hallazgo elegido: H-01**, el controlador web depende de un adaptador de salida concreto.
+
+**Qué se hizo:**
+
+1. Se creó `PasarelaSimuladaController`, un adaptador de entrada propio para la pantalla de la
+   pasarela simulada. Expone el mismo endpoint `POST /api/pasarela-simulada/{referencia}/{resultado}`
+   con la misma lógica: valida que el pago sea del usuario y envía el resultado con la firma del webhook.
+   Depende solo de `PagoUseCase` y lee la firma de la configuración (`HandgelusProperties`).
+2. Se quitó de `PagoController` todo lo relacionado con la pasarela simulada. Ahora depende solo de
+   `PagoUseCase`.
+3. `DatosIniciales` dejó de depender del adaptador concreto y toma la firma de la configuración.
+4. Se eliminó `firmaConfigurada()` de `PasarelaPagoSimuladaAdapter`, porque no pertenecía al puerto
+   `PasarelaPagoPort`.
+5. Se agregó la propiedad `handgelus.pasarela.simulada-habilitada=true`, que permite apagar el
+   endpoint simulado al integrar una pasarela real.
+6. Se agregaron dos pruebas: la caracterización del endpoint y la regla de dependencias entre
+   adaptadores.
+
+El tipo de cambio es **refactorización**: el comportamiento observable no cambia (misma URL, método
+HTTP, respuesta y validaciones), y solo se elimina la dependencia `adapter.in.web` → `adapter.out.pasarela`.
 
 ### 5.1 Diseño antes / después
 
@@ -180,7 +204,8 @@ flowchart LR
 |---|---|
 | `infrastructure/adapter/in/web/PagoController.java` | Se eliminan el import, el campo y el parámetro de `PasarelaPagoSimuladaAdapter`, y el método `pasarelaSimulada` (que se traslada) |
 | `infrastructure/adapter/in/web/PasarelaSimuladaController.java` | **Nuevo**: mismo endpoint `POST /api/pasarela-simulada/{referencia}/{resultado}` con la misma lógica |
-| `infrastructure/adapter/out/pasarela/PasarelaPagoSimuladaAdapter.java` | Se elimina `firmaConfigurada()`, que estaba fuera del puerto |
+| `infrastructure/config/DatosIniciales.java` | Deja de depender de `PasarelaPagoSimuladaAdapter`: recibe `HandgelusProperties` y usa `properties.pasarela().firmaWebhook()` para confirmar el pago de demostración |
+| `infrastructure/adapter/out/pasarela/PasarelaPagoSimuladaAdapter.java` | Se elimina `firmaConfigurada()`, que estaba fuera del puerto. El cambio está aplicado en el código, pero el archivo no está versionado porque `.gitignore` lo excluye (ver H-08) |
 | `backend/src/main/resources/application.properties` | Nueva propiedad `handgelus.pasarela.simulada-habilitada=true` |
 | `backend/src/test/java/com/handgelus/infrastructure/adapter/in/web/PasarelaSimuladaControllerTest.java` | **Nuevo**: caracterización del endpoint |
 | `backend/src/test/java/com/handgelus/infrastructure/ReglasDependenciaAdaptadoresTest.java` | **Nuevo**: regla "adaptadores de entrada no dependen de adaptadores de salida" |
@@ -205,10 +230,28 @@ No cambian: el dominio, `PagoUseCase`, `PagoService`, `SecurityConfig` (la ruta 
 Comando completo: `./gradlew :backend:test` (en Windows: `gradlew.bat :backend:test`). El reporte
 queda en `backend/build/reports/tests/test/index.html`.
 
-### 6.2 Limitaciones
+### 6.2 Resultados obtenidos
+
+Ejecución de `gradlew.bat :backend:test` sobre el código con H-01 ya intervenido (26-10-2026, 19:27 hora de Colombia). Fuente:
+`backend/build/test-results/test/*.xml`.
+
+| Clase de prueba | Pruebas | Fallos | Errores | Omitidas |
+|---|:-:|:-:|:-:|:-:|
+| `com.handgelus.application.FlujoNegocioTest` | 1 (61 verificaciones) | 0 | 0 | 0 |
+| `com.handgelus.infrastructure.ReglasDependenciaAdaptadoresTest` | 1 | 0 | 0 | 0 |
+| `com.handgelus.infrastructure.adapter.in.web.PasarelaSimuladaControllerTest` | 4 | 0 | 0 | 0 |
+| **Total** | **6** | **0** | **0** | **0** |
+
+- **Antes / después de V-1:** `FlujoNegocioTest` no se modificó y pasa en ambos estados, por lo que el comportamiento del caso de uso F-05 se conserva.
+- **Antes / después de V-2:** la regla de dependencias, ejecutada sobre el código original, antes de intervenir H-01, falla con `PagoController.pasarelaSimulada -> PasarelaPagoSimuladaAdapter` y `PagoController(constructor) -> PasarelaPagoSimuladaAdapter`. Tras la intervención pasa.
+- **Compilación:** el primer intento de compilar tras el cambio falló en `DatosIniciales.java:114` (`cannot find symbol: firmaConfigurada()`). Eso reveló un segundo punto acoplado al adaptador concreto, que se corrigió como parte de la misma intervención.
+- V-4 y V-5 son comprobaciones manuales que se demuestran en la sustentación con la aplicación en ejecución.
+
+### 6.3 Limitaciones
 
 - V-3 prueba el controlador con un doble de `PagoUseCase`, sin levantar Spring MVC. El mapeo HTTP y la seguridad se comprueban con V-4 y V-5.
 - La prueba de reglas de dependencia revisa campos y constructores del paquete `adapter.in.web`, no subpaquetes ni dependencias en variables locales. Una herramienta como ArchUnit lo haría de forma completa.
+- La regla de dependencias solo revisa `adapter.in.web`, por eso no detectó el acoplamiento de `DatosIniciales` (paquete `config`); lo detectó el compilador.
 - H-03 sigue abierto: esta intervención no cambia la emisión de comprobantes.
 
 ---
@@ -225,7 +268,7 @@ queda en `backend/build/reports/tests/test/index.html`.
 
 **Deuda técnica pendiente:** H-02 (extraer `ConfirmacionPago`), H-03 (secuencia para comprobantes),
 H-04 (usar `Clock` en referencias), H-05 (DTO de salida para `Pago`), H-06 (secretos por variables
-de entorno), H-07 (dividir `FlujoNegocioTest` por funcionalidad y añadir pruebas de adaptadores).
+de entorno), H-07 (dividir `FlujoNegocioTest` por funcionalidad y añadir pruebas de adaptadores), H-08 (corregir `.gitignore` para versionar `adapter/out`).
 
 **Pregunta de cierre: ¿qué práctica habría detectado esto antes?**
 
@@ -235,3 +278,16 @@ de entorno), H-07 (dividir `FlujoNegocioTest` por funcionalidad y añadir prueba
 - **Análisis estático de secretos** (H-06).
 
 ---
+
+## 8. Git
+
+Repositorio: https://github.com/DaveArango/Handgelus
+
+Historial: https://github.com/DaveArango/Handgelus/commits/main
+
+| # | Mensaje | Qué contiene | Hash |
+|---|---|---|---|
+| Base | `cambio excel` | Estado de la aplicación antes del taller | `7be8ee0` |
+| 1 | `docs: registrar diagnostico tecnico` | Diagnóstico: contexto, arquitectura real, hallazgos y priorización | `a7f6e7f` |
+| 2 | `refactor: separar pasarela simulada del controlador de pagos` | Intervención de H-01 y pruebas nuevas | `049c807` |
+| 3 | `docs: documentar verificacion de refactorizacion` | Resultados de la verificación, hallazgo H-08 y cierre | Último commit del historial |
